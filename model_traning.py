@@ -7,6 +7,10 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 
+# New class import - hieu
+from tensorflow.keras.layers import Bidirectional, Attention, GlobalAveragePooling1D
+
+
 # Load the pre-split datasets
 train = pd.read_csv("train.csv")
 val = pd.read_csv("val.csv")
@@ -46,6 +50,28 @@ model = Sequential([
     Dense(1, activation='sigmoid')
 ])
 
+#new model - hieu
+#read the sentence from both sides
+              
+"""
+# new model using BiLSTM + Attention
+model = Sequential([
+
+    # Converts each word into a dense vector representation
+    Embedding(input_dim=vocab_size, output_dim=128, input_length=maxlen),
+
+    # Bidirectional LSTM reads the sequence in both directions
+    Bidirectional(LSTM(64, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)),
+
+    # Attention layer helps the model focus on the most important words
+    Attention(),
+    GlobalAveragePooling1D(),
+
+    Dense(64, activation='relu'),
+    Dropout(0.3),
+    Dense(1, activation='sigmoid')
+])
+"""
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 model.summary()
 
