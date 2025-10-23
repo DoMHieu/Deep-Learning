@@ -4,10 +4,10 @@ from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.callbacks import EarlyStopping
 
-from tensorflow.keras.layers import Bidirectional, Attention, GlobalAveragePooling1D
+from Attention import Attention
 
 vocab_size = 10000  # maximum number of words
 maxlen = 200  # maximum review length
@@ -50,19 +50,17 @@ model = Sequential([
     Dropout(0.3),
     Dense(1, activation='sigmoid')
 ])
-"""              
+"""
 
-# new model - hieu
+
+# new model
 # read the sentence from both sides
-# using BiLSTM
-model = Sequential([
+# using BiLSTM + attention
 
-    # Converts each word into a dense vector representation
+model = Sequential([
     Embedding(input_dim=vocab_size, output_dim=128, input_length=maxlen),
-    # Bidirectional LSTM reads the sequence in both directions
     Bidirectional(LSTM(64, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)),
-    # Attention layer helps the model focus on the most important words
-    GlobalAveragePooling1D(),
+    Attention(),
     Dense(64, activation='relu'),
     Dropout(0.3),
     Dense(1, activation='sigmoid')
@@ -72,7 +70,7 @@ model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy']
 model.summary()
 
 # Train the model
-early_stop = EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
+early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
 history = model.fit(
     X_train_pad, y_train_enc,
@@ -87,7 +85,7 @@ history = model.fit(
 loss, acc = model.evaluate(X_test_pad, y_test_enc)
 print(f"\nTest Accuracy: {acc:.4f}")
 
-# Save the model for later use
+# Save Model
 model.save("sentiment_model.keras")
 print("Model saved successfully")
 
