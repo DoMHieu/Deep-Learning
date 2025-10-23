@@ -1,0 +1,11 @@
+1st model
+Test Accuracy: 0.7584
+Test Loss: 0.5052
+
+2nd model without attention
+Test Accuracy: 0.8908
+Test Loss: 0.258
+
+after adding attention
+Test Accuracy: 0.8976
+Test Loss: 0.2485
