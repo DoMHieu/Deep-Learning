@@ -1,3 +1,7 @@
+import os
+import random
+import numpy as np
+import tensorflow as tf
 import pandas as pd
 import pickle
 from sklearn.preprocessing import LabelEncoder
@@ -6,8 +10,14 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.callbacks import EarlyStopping
-
 from Attention import Attention
+
+#Stable results
+SEED = 42
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
 
 vocab_size = 10000  # maximum number of words
 maxlen = 200  # maximum review length
