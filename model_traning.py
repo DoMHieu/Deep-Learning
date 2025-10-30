@@ -13,7 +13,8 @@ from tensorflow.keras.layers import Input, Embedding, Bidirectional, GRU, Dense,
 from tensorflow.keras.layers import GlobalAveragePooling1D, GlobalMaxPooling1D, Concatenate
 from tensorflow.keras.layers import BatchNormalization, Activation
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-#Sử dụng GlobalAveragePooling1D thay cho attention
+
+# Reproducibility setup
 SEED = 42
 os.environ['PYTHONHASHSEED'] = str(SEED)
 random.seed(SEED)
@@ -29,8 +30,8 @@ train_csv = "train.csv"
 val_csv = "val.csv"
 test_csv = "test.csv"
 
-# Tải dữ liệu (Đã tối ưu)
-print("Đang tải dữ liệu đã chia...")
+# Load datasets
+print("Loading separated datasets...")
 train_df = pd.read_csv(train_csv)
 val_df = pd.read_csv(val_csv)
 test_df = pd.read_csv(test_csv)
@@ -39,9 +40,9 @@ X_train, y_train = train_df['clean_review'], train_df['sentiment']
 X_val, y_val = val_df['clean_review'], val_df['sentiment']
 X_test, y_test = test_df['clean_review'], test_df['sentiment']
 
-print(f"Đã tải {len(X_train)} train, {len(X_val)} val, {len(X_test)} test.")
+print(f"Loaded {len(X_train)} train, {len(X_val)} val, {len(X_test)} test samples.")
 
-# Mã hóa nhãn
+# Encode labels
 encoder = LabelEncoder()
 y_train_enc = encoder.fit_transform(y_train)
 y_val_enc = encoder.transform(y_val)
@@ -50,7 +51,7 @@ y_test_enc = encoder.transform(y_test)
 with open("label_encoder.pkl", "wb") as f:
     pickle.dump(encoder, f)
 
-# Tokenize & Pad
+# Tokenization and padding
 tokenizer = Tokenizer(num_words=vocab_size, oov_token="<OOV>")
 tokenizer.fit_on_texts(X_train)
 
@@ -65,13 +66,13 @@ X_test_pad = pad_sequences(X_test_seq, maxlen=maxlen, padding='post', truncating
 with open("tokenizer.pkl", "wb") as f:
     pickle.dump(tokenizer, f)
 
-# Load fastText
+# Load pretrained FastText embeddings
 def load_fasttext_embeddings(file_path, embedding_dim, word_index, num_words):
-    print(f"Đang tải pre-trained embeddings từ: {file_path}")
+    print(f"Loading pre-trained embeddings from: {file_path}")
     embeddings_index = {}
     try:
         with open(file_path, 'r', encoding='utf8', errors='ignore') as f:
-            next(f) 
+            next(f)
             for line in f:
                 values = line.rstrip().split(" ")
                 word = values[0]
@@ -83,12 +84,10 @@ def load_fasttext_embeddings(file_path, embedding_dim, word_index, num_words):
                         pass
     except FileNotFoundError:
         print("\n" + "="*60)
-        print(f"LỖI: KHÔNG TÌM THẤY FILE EMBEDDING TẠI: {file_path}")
-        print("Vui lòng tải file 'crawl-300d-2M-subword.vec.zip'.")
-        print("Link tải (chính thức từ fastText):")
+        print(f"ERROR: Missing embedding file at: {file_path}")
+        print("Please download 'crawl-300d-2M-subword.vec.zip' from:")
         print("https://fasttext.cc/docs/en/english-vectors.html")
-        print("\nSau khi tải về, hãy GIẢI NÉN và đặt file .vec vào thư mục")
-        print("chứa script này, sau đó chạy lại.")
+        print("Unzip and place the .vec file in the same folder as this script.")
         print("="*60 + "\n")
         exit()
 
@@ -101,47 +100,45 @@ def load_fasttext_embeddings(file_path, embedding_dim, word_index, num_words):
         if embedding_vector is not None:
             embedding_matrix[i] = embedding_vector
             words_found += 1
-    print(f"Đã tìm thấy {words_found} / {num_words} từ trong file pre-trained.")
+    print(f"Found {words_found} / {num_words} words in pre-trained file.")
     return embedding_matrix
 
 word_index = tokenizer.word_index
 num_words = min(vocab_size, len(word_index) + 1)
 embedding_matrix = load_fasttext_embeddings(fasttext_path, embedding_dim, word_index, num_words)
 
-# Xây dựng mô hình (Đã tối ưu)
+# Build GRU model with pooling layers
 def build_model(num_words, embedding_dim, embedding_matrix, maxlen):
     inputs = Input(shape=(maxlen,))
     x = Embedding(input_dim=num_words,
                   output_dim=embedding_dim,
                   weights=[embedding_matrix],
                   input_length=maxlen,
-                  trainable=False)(inputs) # Pha 1: Đóng băng
+                  trainable=False)(inputs)  # Phase 1: freeze embeddings
     
     x = Bidirectional(GRU(128, return_sequences=True, dropout=0.2))(x)
     x = Bidirectional(GRU(64, return_sequences=True, dropout=0.2))(x)
     
-    # Chỉ sử dụng Pooling để tăng tốc, vì Attention không cải thiện
     avg_pool = GlobalAveragePooling1D()(x)
     max_pool = GlobalMaxPooling1D()(x)
-    
     x = Concatenate()([avg_pool, max_pool])
     
     x = Dense(128)(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Dropout(0.3)(x) 
+    x = Dropout(0.3)(x)
     
     x = Dense(64)(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Dropout(0.2)(x) 
+    x = Dropout(0.2)(x)
     
     outputs = Dense(1, activation='sigmoid')(x)
     model = Model(inputs, outputs)
     return model
 
+# Phase 1: Train with frozen embeddings
 model = build_model(num_words, embedding_dim, embedding_matrix, maxlen)
-# Pha 1: Huấn luyện
 optimizer_p1 = tf.keras.optimizers.AdamW(learning_rate=1e-4, weight_decay=1e-5)
 model.compile(optimizer=optimizer_p1,
               loss='binary_crossentropy',
@@ -155,18 +152,18 @@ callbacks_p1 = [
     EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1)
 ]
 
-print("--- BẮT ĐẦU PHA 1 (ĐÓNG BĂNG EMBEDDINGS) ---")
+print("--- STARTING PHASE 1 (FROZEN EMBEDDINGS) ---")
 model.fit(
     X_train_pad, y_train_enc,
     validation_data=(X_val_pad, y_val_enc),
-    epochs=15, 
+    epochs=15,
     batch_size=64,
     callbacks=callbacks_p1,
     verbose=1
 )
 
-# Pha 2: Tinh chỉnh (fine tuning)
-print("\n--- BẮT ĐẦU PHA 2 (TINH CHỈNH EMBEDDINGS) ---")
+# Phase 2: Fine-tuning embeddings
+print("\n--- STARTING PHASE 2 (FINE-TUNING EMBEDDINGS) ---")
 model.load_weights(checkpoint_p1_path)
 model.layers[1].trainable = True
 
@@ -187,20 +184,18 @@ model.fit(
     X_train_pad, y_train_enc,
     validation_data=(X_val_pad, y_val_enc),
     epochs=10,
-    batch_size=32, 
+    batch_size=32,
     callbacks=callbacks_p2,
     verbose=1
 )
-# Đánh giá
-print("Đang tải model tốt nhất (Pha 2) để đánh giá trên tập test...")
-best_model_path = checkpoint_p2_path
-if not os.path.exists(best_model_path):
-    best_model_path = checkpoint_p1_path
 
+# Evaluate the best model on test data
+print("Loading best model (Phase 2) for test evaluation...")
+best_model_path = checkpoint_p2_path if os.path.exists(checkpoint_p2_path) else checkpoint_p1_path
 model.load_weights(best_model_path)
 
 test_loss, test_acc = model.evaluate(X_test_pad, y_test_enc, verbose=1)
 print(f"Test loss: {test_loss:.4f} - Test accuracy: {test_acc:.4f}")
 
-model.save("Final.keras") 
-print("Model và artifacts đã lưu.")
+model.save("Final.keras")
+print("Model and artifacts have been saved.")
