@@ -49,7 +49,7 @@ def evaluate_model(model_path,
 
     # In báo cáo chi tiết
     print("\nClassification Report:")
-    print(classification_report(y_test_enc, y_pred, target_names=encoder.classes_))
+    print(classification_report(y_test_enc, y_pred, target_names=encoder.classes_,digits=4))
 
     print("\nConfusion Matrix:")
     print(confusion_matrix(y_test_enc, y_pred))

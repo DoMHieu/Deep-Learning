@@ -8,7 +8,7 @@ import os
 MODEL_PATH = "Final.keras"
 TOKENIZER_PATH = "tokenizer.pkl"
 LABEL_ENCODER_PATH = "label_encoder.pkl"
-MAX_SEQUENCE_LENGTH = 250 # Phải khớp với model đã huấn luyện (là 250)
+MAX_SEQUENCE_LENGTH = 250 # Phải khớp với model đã huấn luyện
 
 def load_artifacts(model_path, tokenizer_path, label_encoder_path):
     """
@@ -33,11 +33,16 @@ def load_artifacts(model_path, tokenizer_path, label_encoder_path):
 def clean_text(text):
     """
     Hàm làm sạch văn bản, PHẢI GIỐNG HỆT lúc huấn luyện.
-    (Phiên bản này loại bỏ HTML, chỉ giữ lại chữ cái và khoảng trắng)
+    (Phiên bản này loại bỏ HTML, giữ lại chữ cái và ký tự tiếng Việt)
     """
     text = text.lower()
     text = re.sub(r'<.*?>', '', text)           # Loại bỏ thẻ HTML
-    text = re.sub(r"[^a-zA-Z\s]", '', text)   # Chỉ giữ lại chữ cái và khoảng trắng
+    
+    # === SỬA LỖI Ở ĐÂY ===
+    # Phải khớp với data_cleaning.py
+    text = re.sub(r'[^a-zA-Zà-ỹ\s]', '', text)   
+    # ====================
+    
     text = re.sub(r'\s+', ' ', text).strip()    # Xóa khoảng trắng thừa
     return text
 
